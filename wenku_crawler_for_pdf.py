@@ -13,7 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Image as ReportImag
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # 注意！不含 index.htm 喔！請自行設定！
-novel_url = 'https://www.wenku8.net/novel/3/3057/' # 預設是 敗北女角太多了
+url_prefix = 'https://www.wenku8.net/novel/3/3057/' # 預設是 敗北女角太多了
 
 # 假的 headers 資訊
 headers = {'user-agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36'}
@@ -32,13 +32,13 @@ styleTitleCustom = ParagraphStyle(
 	'styleTitleCustom', fontName = 'notoB', fontSize = 20, alignment = 'center')
 
 # 獲取 url 的 html
-def get_websites(url):
+def GetWebsite(url):
 	html_text = requests.get(url, headers = headers)
 	html_text.encoding = 'utf8'
 	return html_text
 
 # 將一張圖片存成 jpg
-def get_picture(pic_cnt, pic_url):
+def InstallPicture(pic_cnt, pic_url):
 	pic_info = requests.get(pic_url, headers = headers)
 	picture_path = f'wenku/pic/pic_{pic_cnt}.jpg'
 	with open(f'wenku/pic/pic_{pic_cnt}.jpg', 'wb') as f:
@@ -49,7 +49,7 @@ def get_picture(pic_cnt, pic_url):
 
 story = []
 # 將一張圖片放到 pdf 陣列上
-def put_picture(picture_path):
+def AppendPicture(picture_path):
 	try:
 		img = Image(picture_path)
 		img_width, img_height = img.wrap(0, 0)	# 獲取原始圖片大小
@@ -64,18 +64,18 @@ def put_picture(picture_path):
 		print(f'找不到此圖片，路徑：{picture_path}')
 
 # 前置作業
-def find_names_and_titles():
-	url = novel_url + 'index.htm'
+def FindNamesAndUrls():
+	url = url_prefix + 'index.htm'
 	# 進入目錄網站
-	html_text = get_websites(url)
+	category_page = GetWebsite(url)
 
-	soup = BeautifulSoup(html_text.content, 'lxml')
+	soup = BeautifulSoup(category_page.content, 'lxml')
 	catalog = soup.find('table', class_ = 'css')
 	 
 	table_data = catalog.find_all('td')
-	title_cnt = 0
-	 
+	
 	# 每本書的篇章數（做前綴）
+	title_cnt = 0
 	title_gap = []
 	for info in table_data:
 		if info.has_attr('class'):
@@ -92,28 +92,26 @@ def find_names_and_titles():
 	titles = catalog.find_all('td', class_ = 'ccss')
 	with open(f'wenku/title.txt', 'w', encoding = 'utf-8') as f:
 		for title in titles:
-			ref = title.a
-			if ref:
+			if title.a:
 				title_name = title.text
 				f.write(f"{title_name.replace(' ', '')}\n")
 	 
 	# 網址
 	with open(f'wenku/website.txt', 'w', encoding = 'utf-8') as f:
 		for title in titles:
-			ref = title.a
-			if ref:
-				title_web = ref['href']
+			if title.a:
+				title_web = title.a['href']
 				f.write(f'{title_web}\n')
 	 
 	# 書名
 	book_names = catalog.find_all('td', class_ = 'vcss')
 	with open(f'wenku/book_name.txt', 'w', encoding = 'utf-8') as f:
-		for current_name in book_names:
-			f.write(f'{current_name.text}\n')
+		for book_name in book_names:
+			f.write(f'{book_name.text}\n')
 
 choose = [0] # 選擇的書籍
 
-def choose_the_books():
+def AskToChoose():
 	book_names = []
 	with open(f'wenku/book_name.txt', 'r', encoding = 'utf-8') as f:
 		book_names = f.readlines()
@@ -121,12 +119,13 @@ def choose_the_books():
 	for book_name in book_names:
 		print(f"[{book_id}] {book_name.strip('\n')}")
 		book_id += 1
-	print(f'[{book_id}] 我全都要')
+	book_all = book_id
+	print(f'[{book_all}] 我全都要')
 	print(f'請輸入你想要的書籍編號 (可選多個): ', end = '')
 	tmp = list(map(int, input().split()))
 	choose.clear()
-	if book_id in tmp:
-		for i in range(book_id):
+	if book_all in tmp:
+		for i in range(book_all):
 			choose.append(i)
 	else:
 		for i in tmp:
@@ -137,7 +136,7 @@ def choose_the_books():
 	print()
 	return
 
-def catch_text():
+def CatchAllInfo():
 	titles = [] # 篇章名稱
 	with open(f'wenku/title.txt', 'r', encoding = 'utf-8') as f:
 		titles = f.readlines()
@@ -151,33 +150,32 @@ def catch_text():
 	for title_id in choose:
 		wait_second += 2 * (title_gap[title_id + 1] - title_gap[title_id])
 	print(f'請稍後...預計至少需要 {wait_second} 秒鐘...')
-	 
+	
 	pic_cnt = 0
-
 	with open(f'wenku/website.txt', 'r') as f:
 		websites = f.readlines() # 網址編碼
 		for book_id in choose:
 			for title_id in range(title_gap[book_id], title_gap[book_id + 1]):
-				url = novel_url + websites[title_id].strip('\n')
-				html_text = get_websites(url)
-					
-				soup = BeautifulSoup(html_text.content, 'lxml')
-				novel = soup.find('div', {'id': 'content'})
-				if novel:
+				url = url_prefix + websites[title_id].strip('\n')
+				page_text = GetWebsite(url)
+				
+				soup = BeautifulSoup(page_text.content, 'lxml')
+				cur_page = soup.find('div', {'id': 'content'})
+				if cur_page:
 					cur_title = f'<< {cc.convert(titles[title_id].strip('\n'))} >>'
 					story.append(Paragraph(cc.convert(cur_title), styleNormalCustom))
 					story.append(Paragraph(f'\n', styleNormalCustom))
-					pics = novel.find_all('div', class_ = 'divimage')
+					pics = cur_page.find_all('div', class_ = 'divimage')
 					if pics: # 是圖片
-						for i in pics:
-							pic_url = i.a["href"]
-							picture_path = get_picture(pic_cnt, pic_url)
+						for pic in pics:
+							pic_url = pic.a["href"]
+							picture_path = InstallPicture(pic_cnt, pic_url)
 							pic_cnt += 1
-							put_picture(picture_path)
+							AppendPicture(picture_path)
 					else: # 是文字
-						for i in novel:
-							if 'http://www.wenku8.com' not in i.text:
-								line = i.text.strip().replace(' ', '').replace(u'\xa0','')
+						for words in cur_page:
+							if 'http://www.wenku8.com' not in words.text:
+								line = words.text.strip().replace(' ', '').replace(u'\xa0','')
 								if line:
 									story.append(Paragraph(cc.convert(line), styleNormalCustom))
 				time.sleep(2)
@@ -205,6 +203,6 @@ try:
 	os.mkdir('wenku/pdf_file')
 except:
 	pass
-find_names_and_titles()
-choose_the_books()
-catch_text()
+FindNamesAndUrls()
+AskToChoose()
+CatchAllInfo()
