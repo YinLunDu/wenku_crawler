@@ -35,7 +35,7 @@ def fetch_website_content(url):
     response.encoding = 'utf8'
     return response
 
-def save_image_to_file(pic_cnt, pic_url):
+def save_image(pic_cnt, pic_url):
     response = requests.get(pic_url, headers=HEADERS)
     image_path = f'wenku/pic/pic_{pic_cnt}.jpg'
     with open(image_path, 'wb') as f:
@@ -72,17 +72,17 @@ def find_names_and_urls():
                 title_cnt += 1
     title_gap.append(title_cnt)
 
-    save_to_file('title_gap.txt', '\n'.join(map(str, title_gap)))
+    save_important_stuff('title_gap.txt', '\n'.join(map(str, title_gap)))
     titles = [title.text.replace(' ', '') for title in catalog.find_all('td', class_='ccss') if title.a]
-    save_to_file('title.txt', '\n'.join(titles))
+    save_important_stuff('title.txt', '\n'.join(titles))
 
     websites = [title.a['href'] for title in catalog.find_all('td', class_='ccss') if title.a]
-    save_to_file('website.txt', '\n'.join(websites))
+    save_important_stuff('website.txt', '\n'.join(websites))
 
     book_names = [book.text for book in catalog.find_all('td', class_='vcss')]
-    save_to_file('book_name.txt', '\n'.join(book_names))
+    save_important_stuff('book_name.txt', '\n'.join(book_names))
 
-def save_to_file(filename, content):
+def save_important_stuff(filename, content):
     with open(os.path.join(DATA_DIR, filename), 'w', encoding='utf-8') as f:
         f.write(content)
 
@@ -134,7 +134,7 @@ def process_content(content, story):
     pic_cnt = 0
     if pics:
         for pic in pics:
-            img_path = save_image_to_file(pic_cnt, pic.a["href"])
+            img_path = save_image(pic_cnt, pic.a["href"])
             pic_cnt += 1
             append_image_to_story(img_path, story)
     else:
